@@ -2,21 +2,28 @@
 
 namespace Database\Seeders;
 
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\Client;
+use App\Models\Produit;
+use App\Models\Vente;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // \App\Models\User::factory(10)->create();
+        // 1. L'administrateur et les categories (seeders existants)
+        $this->call([
+            AdminUserSeeder::class,
+            CategorieSeeder::class,
+        ]);
 
-        // \App\Models\User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
+        // 2. Les produits AVANT les ventes (contrainte de cle etrangere !)
+        Produit::factory()->count(30)->create();
+
+        // 3. Les clients
+        Client::factory()->count(50)->create();
+
+        // 4. Les ventes EN DERNIER (elles referencent clients ET produits)
+        Vente::factory()->count(200)->create();
     }
 }
