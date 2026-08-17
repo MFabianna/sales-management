@@ -61,7 +61,10 @@
                 <a class="nav-link {{ request()->routeIs('clients.*') ? 'active' : '' }}"
                 href="{{ route('clients.index') }}">Clients</a>
             </li>
-            <li class="nav-item"><a class="nav-link" href="#">Produits</a></li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('produits.*') ? 'active' : '' }}"
+                href="{{ route('produits.index') }}">Produits</a>
+            </li>
             <li class="nav-item"><a class="nav-link" href="#">Factures</a></li>
         </ul>
         <ul class="navbar-nav ms-auto">
