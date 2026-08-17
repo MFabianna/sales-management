@@ -56,7 +56,10 @@
                    href="{{ route('dashboard') }}">Accueil</a>
             </li>
             {{-- Les 4 liens ci-dessous seront actives des la Phase 6 --}}
-            <li class="nav-item"><a class="nav-link" href="#">Ventes</a></li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('ventes.*') ? 'active' : '' }}"
+                href="{{ route('ventes.index') }}">Ventes</a>
+            </li>
             <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('clients.*') ? 'active' : '' }}"
                 href="{{ route('clients.index') }}">Clients</a>
@@ -65,7 +68,10 @@
                 <a class="nav-link {{ request()->routeIs('produits.*') ? 'active' : '' }}"
                 href="{{ route('produits.index') }}">Produits</a>
             </li>
-            <li class="nav-item"><a class="nav-link" href="#">Factures</a></li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('factures.*') ? 'active' : '' }}"
+                href="{{ route('factures.index') }}">Factures</a>
+            </li>
         </ul>
         <ul class="navbar-nav ms-auto">
             @auth
