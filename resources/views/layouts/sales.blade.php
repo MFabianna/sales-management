@@ -57,7 +57,10 @@
             </li>
             {{-- Les 4 liens ci-dessous seront actives des la Phase 6 --}}
             <li class="nav-item"><a class="nav-link" href="#">Ventes</a></li>
-            <li class="nav-item"><a class="nav-link" href="#">Clients</a></li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('clients.*') ? 'active' : '' }}"
+                href="{{ route('clients.index') }}">Clients</a>
+            </li>
             <li class="nav-item"><a class="nav-link" href="#">Produits</a></li>
             <li class="nav-item"><a class="nav-link" href="#">Factures</a></li>
         </ul>

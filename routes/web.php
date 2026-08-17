@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ClientController;
 use Illuminate\Support\Facades\Route;
 
 // La page "/" redirige vers le tableau de bord
@@ -13,6 +14,7 @@ Route::get('/', function () {
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth'])
     ->name('dashboard');
+Route::get('/clients', [ClientController::class, 'index'])->name('clients');
 
 // Routes du profil (fournies par Breeze)
 Route::middleware('auth')->group(function () {
