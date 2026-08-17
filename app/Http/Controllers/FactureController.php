@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Models\Vente;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class FactureController extends Controller
 {

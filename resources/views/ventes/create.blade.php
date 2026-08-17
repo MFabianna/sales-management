@@ -47,15 +47,22 @@
                 @error('produit_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
 
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Quantite *</label>
-                    <div class="input-group">
-                        <input type="number" step="0.01" min="0.01" name="quantite" id="inputQuantite" 
-                               value="{{ old('quantite') }}" required
-                               class="form-control @error('quantite') is-invalid @enderror">
-                        <span class="input-group-text" id="spanUnite">-</span>
-                    </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Quantite *</label>
+                <div class="input-group">
+                    <input type="number" step="0.01" min="0.01" name="quantite" id="inputQuantite" 
+                        value="{{ old('quantite') }}" required
+                        class="form-control @error('quantite') is-invalid @enderror">
+                    <span class="input-group-text" id="spanUnite">-</span>
+                </div>
+                <small class="text-muted" id="infoStock">Selectionnez un produit pour voir le stock disponible.</small>
+                <div class="text-danger small fw-bold d-none" id="erreurStock">
+                    La quantite depasse le stock disponible !
+                </div>
+                @error('quantite') 
+                    <div class="text-danger small fw-bold">{{ $message }}</div> 
+                @enderror
+            </div>
                     @error('quantite') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <div class="col-md-6 mb-3">
@@ -65,7 +72,7 @@
                 </div>
             </div>
 
-            <div class="d-flex gap-2 mt-4">
+            <div class="d-flex gap-2 mt-3">
                 <button type="submit" class="btn btn-rose">Enregistrer la vente</button>
                 <a href="{{ route('ventes.index') }}" class="btn btn-outline-rose">Annuler</a>
             </div>
@@ -74,30 +81,56 @@
 
     {{-- Script pour le calcul automatique --}}
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const selectProduit = document.getElementById('selectProduit');
-            const inputQuantite = document.getElementById('inputQuantite');
-            const inputMontant = document.getElementById('inputMontant');
-            const spanUnite = document.getElementById('spanUnite');
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectProduit = document.getElementById('selectProduit');
+        const inputQuantite = document.getElementById('inputQuantite');
+        const inputMontant = document.getElementById('inputMontant');
+        const spanUnite = document.getElementById('spanUnite');
+        const infoStock = document.getElementById('infoStock');
+        const erreurStock = document.getElementById('erreurStock');
 
-            function calculerMontant() {
-                const selectedOption = selectProduit.options[selectProduit.selectedIndex];
-                const prix = parseFloat(selectedOption.getAttribute('data-prix')) || 0;
-                const quantite = parseFloat(inputQuantite.value) || 0;
-                const unite = selectedOption.getAttribute('data-unite') || '-';
-                
-                spanUnite.textContent = unite;
-                const total = prix * quantite;
-                inputMontant.value = total.toFixed(2) + ' Ar';
+        function calculerMontant() {
+            const selectedOption = selectProduit.options[selectProduit.selectedIndex];
+
+            // Si aucun produit n'est selectionne
+            if (!selectedOption || !selectedOption.value) {
+                spanUnite.textContent = '-';
+                inputMontant.value = '0.00 Ar';
+                infoStock.textContent = 'Selectionnez un produit pour voir le stock disponible.';
+                inputQuantite.removeAttribute('max');
+                erreurStock.classList.add('d-none');
+                return;
             }
 
-            selectProduit.addEventListener('change', calculerMontant);
-            inputQuantite.addEventListener('input', calculerMontant);
-            
-            // Calcul initial si un produit est deja selectionne
-            if (selectProduit.value) {
-                calculerMontant();
+            const prix = parseFloat(selectedOption.getAttribute('data-prix')) || 0;
+            const stock = parseFloat(selectedOption.getAttribute('data-stock')) || 0;
+            const quantite = parseFloat(inputQuantite.value) || 0;
+            const unite = selectedOption.getAttribute('data-unite') || '-';
+
+            spanUnite.textContent = unite;
+
+            // On limite la quantite au stock disponible
+            inputQuantite.max = stock;
+            infoStock.textContent = 'Stock disponible : ' + stock + ' ' + unite;
+
+            // Verification en temps reel
+            if (quantite > stock) {
+                erreurStock.classList.remove('d-none');
+                inputQuantite.classList.add('is-invalid');
+            } else {
+                erreurStock.classList.add('d-none');
+                inputQuantite.classList.remove('is-invalid');
             }
-        });
-    </script>
+
+            const total = prix * quantite;
+            inputMontant.value = total.toFixed(2) + ' Ar';
+        }
+
+        selectProduit.addEventListener('change', calculerMontant);
+        inputQuantite.addEventListener('input', calculerMontant);
+
+        // Calcul initial au chargement de la page
+        calculerMontant();
+    });
+</script>
 @endsection

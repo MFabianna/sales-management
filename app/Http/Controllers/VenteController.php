@@ -10,10 +10,9 @@ use Illuminate\Support\Facades\DB;
 
 class VenteController extends Controller
 {
-    // GET /ventes
+    // GET /ventes : liste des ventes avec pagination
     public function index()
     {
-        // On charge les relations pour eviter les requetes en boucle (N+1 problem)
         $ventes = Vente::with(['client', 'produit'])
             ->latest('date_vente')
             ->paginate(10);
@@ -21,17 +20,20 @@ class VenteController extends Controller
         return view('ventes.index', compact('ventes'));
     }
 
-    // GET /ventes/create
+    // GET /ventes/create : formulaire de creation
     public function create()
     {
         $clients = Client::orderBy('nom')->get();
-        // On ne recupere que les produits qui ont du stock
-        $produits = Produit::where('quantite_stock', '>', 0)->orderBy('nom')->get();
-        
+
+        // On n'affiche QUE les produits qui ont du stock disponible
+        $produits = Produit::where('quantite_stock', '>', 0)
+                           ->orderBy('nom')
+                           ->get();
+
         return view('ventes.create', compact('clients', 'produits'));
     }
 
-    // POST /ventes
+    // POST /ventes : validation + creation + decrement du stock
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -43,22 +45,18 @@ class VenteController extends Controller
 
         $produit = Produit::findOrFail($validated['produit_id']);
 
-        // 1. Verification du stock (Validation metier)
+        // Verification du stock
         if ($produit->quantite_stock < $validated['quantite']) {
             return back()->withInput()->withErrors([
                 'quantite' => 'Stock insuffisant ! Il reste seulement ' . $produit->quantite_stock . ' ' . $produit->unite . '(s) en stock.'
             ]);
         }
 
-        // 2. Transaction pour garantir l'integrite des donnees
+        // Transaction pour garantir l'integrite des donnees
         DB::transaction(function () use ($validated, $produit) {
-            // Calcul du montant cote serveur (securite : on ne fait jamais confiance au calcul du navigateur)
             $montant = $validated['quantite'] * $produit->prix;
-            
-            // Generation du code automatique
             $code = Vente::genererCode();
 
-            // Creation de la vente
             Vente::create([
                 'code' => $code,
                 'date_vente' => $validated['date_vente'],
@@ -68,7 +66,6 @@ class VenteController extends Controller
                 'produit_id' => $validated['produit_id'],
             ]);
 
-            // Decrementation du stock
             $produit->quantite_stock -= $validated['quantite'];
             $produit->save();
         });
@@ -76,69 +73,68 @@ class VenteController extends Controller
         return redirect()->route('ventes.index')
             ->with('success', 'Vente enregistree avec succes et stock mis a jour.');
     }
-    
-   // GET /ventes/{vente}/edit
-public function edit(Vente $vente)
-{
-    $clients = Client::orderBy('nom')->get();
-    // Pas de filtre sur le stock ici : le produit actuel doit rester
-    // visible dans la liste meme s'il est en rupture
-    $produits = Produit::orderBy('nom')->get();
 
-    return view('ventes.edit', compact('vente', 'clients', 'produits'));
-}
+    // GET /ventes/{vente}/edit : formulaire de modification
+    public function edit(Vente $vente)
+    {
+        $clients = Client::orderBy('nom')->get();
 
-// PUT /ventes/{vente}
-public function update(Request $request, Vente $vente)
-{
-    $validated = $request->validate([
-        'client_id' => 'required|exists:clients,id',
-        'produit_id' => 'required|exists:produits,id',
-        'quantite' => 'required|numeric|min:0.01',
-        'date_vente' => 'required|date',
-    ]);
+        // On affiche TOUS les produits (pour que le produit actuel reste visible)
+        $produits = Produit::orderBy('nom')->get();
 
-    $nouveauProduit = Produit::findOrFail($validated['produit_id']);
-    $ancienProduit = $vente->produit;
-
-    // Calcul du stock disponible : si c'est le meme produit,
-    // on remet d'abord l'ancienne quantite dans la balance
-    $stockDisponible = $ancienProduit->id === $nouveauProduit->id
-        ? $ancienProduit->quantite_stock + $vente->quantite
-        : $nouveauProduit->quantite_stock;
-
-    if ($stockDisponible < $validated['quantite']) {
-        return back()->withInput()->withErrors([
-            'quantite' => 'Stock insuffisant pour cette modification.'
-        ]);
+        return view('ventes.edit', compact('vente', 'clients', 'produits'));
     }
 
-    DB::transaction(function () use ($validated, $vente, $nouveauProduit, $ancienProduit) {
-        // 1. Rendre l'ancienne quantite au stock
-        $ancienProduit->increment('quantite_stock', $vente->quantite);
-
-        // 2. Retirer la nouvelle quantite du stock
-        $nouveauProduit->decrement('quantite_stock', $validated['quantite']);
-
-        // 3. Mettre a jour la vente (le code ne change JAMAIS)
-        $vente->update([
-            'date_vente' => $validated['date_vente'],
-            'quantite' => $validated['quantite'],
-            'montant' => $validated['quantite'] * $nouveauProduit->prix,
-            'client_id' => $validated['client_id'],
-            'produit_id' => $nouveauProduit->id,
+    // PUT /ventes/{vente} : mise a jour + ajustement du stock
+    public function update(Request $request, Vente $vente)
+    {
+        $validated = $request->validate([
+            'client_id' => 'required|exists:clients,id',
+            'produit_id' => 'required|exists:produits,id',
+            'quantite' => 'required|numeric|min:0.01',
+            'date_vente' => 'required|date',
         ]);
-    });
 
-    return redirect()->route('ventes.index')
-        ->with('success', 'Vente modifiee et stock ajuste.');
-}
+        $nouveauProduit = Produit::findOrFail($validated['produit_id']);
+        $ancienProduit = $vente->produit;
 
-    // DELETE /ventes/{vente}
+        // Calcul du stock disponible
+        $stockDisponible = $ancienProduit->id === $nouveauProduit->id
+            ? $ancienProduit->quantite_stock + $vente->quantite
+            : $nouveauProduit->quantite_stock;
+
+        if ($stockDisponible < $validated['quantite']) {
+            return back()->withInput()->withErrors([
+                'quantite' => 'Stock insuffisant pour cette modification.'
+            ]);
+        }
+
+        DB::transaction(function () use ($validated, $vente, $nouveauProduit, $ancienProduit) {
+            // Rendre l'ancienne quantite au stock
+            $ancienProduit->increment('quantite_stock', $vente->quantite);
+
+            // Retirer la nouvelle quantite du stock
+            $nouveauProduit->decrement('quantite_stock', $validated['quantite']);
+
+            // Mettre a jour la vente (le code ne change jamais)
+            $vente->update([
+                'date_vente' => $validated['date_vente'],
+                'quantite' => $validated['quantite'],
+                'montant' => $validated['quantite'] * $nouveauProduit->prix,
+                'client_id' => $validated['client_id'],
+                'produit_id' => $nouveauProduit->id,
+            ]);
+        });
+
+        return redirect()->route('ventes.index')
+            ->with('success', 'Vente modifiee et stock ajuste.');
+    }
+
+    // DELETE /ventes/{vente} : suppression + restauration du stock
     public function destroy(Vente $vente)
     {
         DB::transaction(function () use ($vente) {
-            // Remettre la quantite en stock AVANT de supprimer
+            // Remettre la quantite en stock avant de supprimer
             $vente->produit->increment('quantite_stock', $vente->quantite);
             $vente->delete();
         });
